@@ -29,7 +29,7 @@ button,input,select,textarea{font:inherit;color:inherit;letter-spacing:inherit}
 .panel{position:relative;background:var(--cream);padding:clamp(24px,4.4vw,52px) clamp(18px,4.4vw,56px);margin-top:14px}
 .decor{position:absolute;z-index:0;pointer-events:none;display:block}
 .panel>*:not(.decor){position:relative;z-index:1}
-.spin{animation:spin 16s linear infinite}
+.spin:not([data-speed]){animation:spin 16s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .hl{background:linear-gradient(transparent 56%,var(--hl) 56% 94%,transparent 94%);-webkit-box-decoration-break:clone;box-decoration-break:clone}
 .q{display:block;font-family:Georgia,'Times New Roman',serif;font-size:80px;font-weight:700;line-height:.8;height:.44em;color:var(--qc,var(--ink));letter-spacing:0}
@@ -47,7 +47,7 @@ button,input,select,textarea{font:inherit;color:inherit;letter-spacing:inherit}
 .whoami{display:inline-flex;align-items:center;gap:4px;max-width:100%;margin-top:20px;background:var(--white);border:2px solid var(--ink);border-radius:999px;padding:4px 6px 4px 4px}
 .whoami label{font-size:13px;font-weight:800;background:var(--ink);color:var(--cream);border-radius:999px;padding:4px 12px;white-space:nowrap}
 .whoami select{width:auto;min-width:0;border:0;background:transparent;font-weight:800;padding:4px 6px;cursor:pointer}
-.collage{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:start}
+.collage{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:start;perspective:900px}
 .collage .ph:nth-child(2){margin-top:44px}
 .collage .ph:nth-child(3){margin-top:18px}
 .ph{display:block;aspect-ratio:4/5;border-radius:18px;background:var(--c) center/cover no-repeat;transition:transform .5s var(--ease)}
@@ -240,10 +240,10 @@ footer .panel{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;justif
 <div class="site">
 <header class="page top">
   <div class="panel">
-    <svg class="decor" style="left:20%;top:-36px;width:140px;height:70px;color:var(--green)" aria-hidden="true"><use href="#s-scallop"/></svg>
-    <svg class="decor" style="left:-104px;bottom:-70px;width:240px;height:131px;color:var(--ink)" aria-hidden="true"><use href="#s-loops"/></svg>
-    <svg class="decor sm-hide spin" style="left:49%;top:12%;width:36px;height:36px;color:var(--sun)" aria-hidden="true"><use href="#s-burst"/></svg>
-    <svg class="decor sm-hide" style="right:-34px;bottom:18%;width:72px;height:40px;color:var(--pink)" aria-hidden="true"><use href="#s-arc"/></svg>
+    <svg class="decor" data-speed=".06" style="left:20%;top:-36px;width:140px;height:70px;color:var(--green)" aria-hidden="true"><use href="#s-scallop"/></svg>
+    <svg class="decor" data-speed="-.08" style="left:-104px;bottom:-70px;width:240px;height:131px;color:var(--ink)" aria-hidden="true"><use href="#s-loops"/></svg>
+    <svg class="decor sm-hide spin" data-speed=".1" style="left:49%;top:12%;width:36px;height:36px;color:var(--sun)" aria-hidden="true"><use href="#s-burst"/></svg>
+    <svg class="decor sm-hide" data-speed="-.05" style="right:-34px;bottom:18%;width:72px;height:40px;color:var(--pink)" aria-hidden="true"><use href="#s-arc"/></svg>
     <div class="hero">
       <div>
         <span class="q" style="--qc:var(--coral)" aria-hidden="true">“</span>
@@ -287,8 +287,8 @@ footer .panel{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;justif
 
 <main class="page">
   <div class="panel">
-    <svg class="decor sm-hide" style="left:-44px;top:180px;width:88px;height:88px;color:var(--blue)" aria-hidden="true"><circle cx="44" cy="44" r="44" fill="currentColor"/></svg>
-    <svg class="decor" style="right:-20px;top:-20px;width:60px;height:60px;color:var(--purple)" aria-hidden="true"><use href="#s-pixels"/></svg>
+    <svg class="decor sm-hide" data-speed=".08" style="left:-44px;top:180px;width:88px;height:88px;color:var(--blue)" aria-hidden="true"><circle cx="44" cy="44" r="44" fill="currentColor"/></svg>
+    <svg class="decor" data-speed="-.05" style="right:-20px;top:-20px;width:60px;height:60px;color:var(--purple)" aria-hidden="true"><use href="#s-pixels"/></svg>
     <div id="app" tabindex="-1"></div>
   </div>
 </main>
@@ -864,6 +864,84 @@ document.addEventListener('submit', e => {
   }
 });
 
+/* ───────── 움직임 (안내 사이트와 같은 방식) ─────────
+   도형: 스크롤 깊이감 + 마우스 자기장 + 스프링 반동
+   - 마우스가 멀리 있으면 층마다 반대로 따라 움직여 깊이감이 생깁니다
+   - 가까이 오면 밀려나며 부풀고, 휘두르면 그 방향으로 튕기고, 스치면 돕니다
+   - 움직이는 만큼 진행 방향으로 늘어났다가(젤리) 스프링처럼 제자리로 돌아옵니다
+   사진 카드: 마우스를 따라 기웁니다. 동작 줄이기 설정이면 모두 멈춥니다. */
+function startMotion() {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const shapes = [...document.querySelectorAll('.decor')].map((el, i) => {
+    if (!el.dataset.speed) el.dataset.speed = '0'; // CSS 회전을 끄고 스크립트가 돌립니다
+    return { el, speed: +el.dataset.speed, spin: el.classList.contains('spin'), phase: i * 1.7,
+      x: 0, y: 0, vx: 0, vy: 0, s: 1, vs: 0, a: 0, va: 0, par: 0, size: 0 };
+  });
+  const ptr = { x: 0, y: 0, dx: 0, dy: 0, on: false };
+  addEventListener('pointermove', e => {
+    if (ptr.on) { ptr.dx += e.clientX - ptr.x; ptr.dy += e.clientY - ptr.y; }
+    ptr.x = e.clientX; ptr.y = e.clientY; ptr.on = true;
+  }, { passive: true });
+  const off = e => { if (e.type !== 'pointerup' || e.pointerType !== 'mouse') ptr.on = false; };
+  addEventListener('pointerup', off); addEventListener('pointercancel', off); addEventListener('blur', off);
+  document.addEventListener('mouseout', e => { if (!e.relatedTarget) ptr.on = false; });
+  addEventListener('resize', () => shapes.forEach(sh => { sh.size = 0; }));
+  let lastY = scrollY;
+  const frame = t => {
+    const vw = innerWidth, vh = innerHeight, nx = ptr.on ? ptr.x / vw * 2 - 1 : 0, ny = ptr.on ? ptr.y / vh * 2 - 1 : 0;
+    const scrolled = scrollY - lastY; lastY = scrollY;
+    const boxes = shapes.map(sh => sh.el.getBoundingClientRect()); // 먼저 모두 읽고, 아래에서 한꺼번에 씁니다
+    shapes.forEach((sh, i) => {
+      const b = boxes[i];
+      if (!b.width || b.bottom < -300 || b.top > vh + 300) return;
+      if (!sh.size) sh.size = Math.max(b.width, b.height) / sh.s;
+      const cx = b.left + b.width / 2 - sh.x, cy = b.top + b.height / 2 - sh.y - sh.par; // 움직이기 전 자리
+      const par = (cy - vh / 2) * -sh.speed;
+      const dir = sh.speed < 0 ? -1 : 1, depth = dir * (14 + sh.size * .18);
+      let tx = nx * depth + Math.sin(t / 1300 + sh.phase) * 5;
+      let ty = ny * depth * .7 + Math.cos(t / 1700 + sh.phase) * 6;
+      let ts = 1;
+      if (ptr.on) {
+        const ex = cx + sh.x - ptr.x, ey = cy + sh.y + par - ptr.y, d = Math.hypot(ex, ey) || 1;
+        const R = 150 + sh.size * .9;
+        if (d < R) {
+          const f = (1 - d / R) ** 2;
+          tx += ex / d * f * 95; ty += ey / d * f * 95;
+          ts += f * .35;
+          sh.vx += ptr.dx * f * .14; sh.vy += ptr.dy * f * .14;
+          sh.va += (ptr.dx * ey - ptr.dy * ex) / d * f * .045;
+        }
+      }
+      sh.vx = (sh.vx + (tx - sh.x) * .07) * .84; sh.x += sh.vx;
+      sh.vy = (sh.vy + (ty - sh.y) * .07) * .84; sh.y += sh.vy;
+      sh.vs = (sh.vs + (ts - sh.s) * .12) * .78; sh.s += sh.vs;
+      if (sh.spin) { sh.va *= .96; sh.a += .3 + sh.va + scrolled * .12; }
+      else { sh.va = (sh.va + (nx * 10 * dir + sh.vx * 1.4 - sh.a) * .06) * .82; sh.a += sh.va; }
+      sh.par = par;
+      const st = Math.min(Math.hypot(sh.vx, sh.vy) * .02, .34), ang = Math.atan2(sh.vy, sh.vx) * 57.3;
+      sh.el.style.transform = `translate3d(${sh.x.toFixed(1)}px,${(sh.y + par).toFixed(1)}px,0) rotate(${ang.toFixed(1)}deg) scale(${((1 + st) * sh.s).toFixed(3)},${((1 - st * .55) * sh.s).toFixed(3)}) rotate(${(sh.a - ang).toFixed(1)}deg)`;
+    });
+    ptr.dx = ptr.dy = 0;
+    requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
+
+  const collage = $('.collage');
+  if (collage && matchMedia('(hover: hover) and (pointer: fine)').matches) {
+    const cards = [...collage.querySelectorAll('.ph')];
+    const area = collage.closest('.hero');
+    area.addEventListener('pointermove', e => {
+      const r = collage.getBoundingClientRect();
+      const x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5;
+      cards.forEach((c, i) => {
+        const k = i % 2 ? 1 : -1;
+        c.style.transform = `rotateY(${(x * 12).toFixed(2)}deg) rotateX(${(-y * 12).toFixed(2)}deg) translate3d(${(x * k * 10).toFixed(1)}px,${(y * 10).toFixed(1)}px,0)`;
+      });
+    });
+    area.addEventListener('pointerleave', () => cards.forEach(c => { c.style.transform = ''; }));
+  }
+}
+
 /* ───────── 시작 ───────── */
 document.querySelectorAll('[data-photo]').forEach(el => {
   if (PHOTOS[el.dataset.photo]) el.style.backgroundImage = `url(${PHOTOS[el.dataset.photo]})`;
@@ -871,6 +949,7 @@ document.querySelectorAll('[data-photo]').forEach(el => {
 renderWho();
 if (ls.get('jungsan-carrot-guide', 'on') !== 'off') $('#guide').hidden = false;
 route();
+startMotion();
 })();
 </script>
 </body>
